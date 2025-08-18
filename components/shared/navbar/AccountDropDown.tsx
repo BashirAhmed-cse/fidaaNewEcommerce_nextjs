@@ -37,7 +37,7 @@ const AccountDropDown = () => {
           className="lg:flex"
           onClick={handleOnClickAccountMenu}
         >
-          <User size={24} />
+          <User size={24} className="text-main"/>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56">

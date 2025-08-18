@@ -38,8 +38,8 @@ const Card = ({
 
   const priceDisplay =
     product.prices?.length === 1
-      ? `$${discountedPrice(product.prices[0] || product.price)}`
-      : `$${discountedPrice(Math.min(...(product.prices || [product.price])))} - $${discountedPrice(Math.max(...(product.prices || [product.price])))}`;
+      ? `£${discountedPrice(product.prices[0] || product.price)}`
+      : `£${discountedPrice(Math.min(...(product.prices || [product.price])))} - £${discountedPrice(Math.max(...(product.prices || [product.price])))}`;
 
   return (
     <div
@@ -116,13 +116,13 @@ const Card = ({
         </span>
         {product.discount > 0 && (
           <span className="text-gray-500 line-through text-sm">
-            ${product.prices[0].toFixed(2)}
+           £{product.prices[0].toFixed(2)}
           </span>
         )}
       </div>
 
       <Link href={`/product/${product.slug}?style=0`}>
-        <Button className="w-full bg-black text-white hover:bg-gray-800">
+        <Button className="w-full bg-main text-white hover:bg-gray-800">
           VIEW PRODUCT
         </Button>
       </Link>
@@ -143,7 +143,7 @@ const ProductCard = ({
   return products.length > 0 ? (
     <div className="ownContainer mx-auto mb-[20px]">
       <div className="flex justify-center">
-        <div className="heading ownContainer uppercase sm:my-[40px]">
+        <div className="heading ownContainer uppercase sm:my-[40px] text-main">
           {heading}
         </div>
       </div>

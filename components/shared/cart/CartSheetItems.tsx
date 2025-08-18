@@ -78,7 +78,7 @@ const CartSheetItems = ({ product }: { product: any }) => {
               </button>
             </div>
             <p className="font-semibold text-xs sm:text-base">
-              ${product.price}
+              £{product.price}
             </p>
           </div>
         </div>

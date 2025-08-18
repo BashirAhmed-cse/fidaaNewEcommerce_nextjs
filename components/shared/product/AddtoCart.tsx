@@ -102,7 +102,7 @@ const AddtoCartButton = ({ product, size }: { product: any; size: number }) => {
         onClick={() => addtoCartHandler()}
         disabled={product.quantity < 1 || qty === 0 || size === null}
         style={{ cursor: `${product.quantity < 1 ? "not-allowed" : ""}` }}
-        className="w-full bg-black text-white hover:bg-gray-800 py-[30px]"
+        className="w-full bg-main text-white hover:bg-gray-800 py-[30px]"
       >
         ADD TO CART
       </Button>

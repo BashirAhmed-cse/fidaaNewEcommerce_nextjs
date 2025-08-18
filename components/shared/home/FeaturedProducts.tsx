@@ -35,7 +35,7 @@ const ProductCarousel = ({ products }: { products: any[] }) => {
 
   return (
     <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 ">
-      <div className="heading mb-[10px] ownContainer text-center uppercase sm:mb-[40px]">
+      <div className="heading mb-[10px] ownContainer text-center uppercase sm:mb-[40px] text-main">
         FEATURED PRODUCTS
       </div>
       <div className="embla overflow-hidden" ref={emblaRef}>
@@ -102,12 +102,12 @@ const ProductCarousel = ({ products }: { products: any[] }) => {
                     <div className="mb-4 lg:mb-0">
                       <div className="flex items-baseline gap-2">
                         <span className="text-2xl lg:text-3xl font-bold">
-                          ${productPrice}
+                          £{productPrice}
                         </span>
                         {discountPercent > 0 && (
                           <>
                             <span className="text-lg text-gray-500 line-through">
-                              ${originalPrice.toFixed(2)}
+                              £{originalPrice.toFixed(2)}
                             </span>
                             <span className="text-red-500 font-semibold">
                               -{discountPercent}%

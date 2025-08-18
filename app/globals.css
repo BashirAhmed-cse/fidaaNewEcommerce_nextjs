@@ -42,6 +42,8 @@
 }
 
 :root {
+  --main-color: #4C8C54;
+    --hover-color: #3A6D42;
   --radius: 0.625rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.129 0.042 264.695);
@@ -77,6 +79,7 @@
 }
 
 .dark {
+  --main-color: #3A6D42;
   --background: oklch(0.129 0.042 264.695);
   --foreground: oklch(0.984 0.003 247.858);
   --card: oklch(0.208 0.042 265.755);
@@ -196,4 +199,36 @@
 }
 .para {
   @apply tracking-[0.6px] text-sm font-[400] sm:text-sm;
+}
+
+@layer utilities {
+  /* Main color utilities */
+  .bg-main {
+    background-color: var(--main-color);
+  }
+  .text-main {
+    color: var(--main-color);
+  }
+  .border-main {
+    border-color: var(--main-color);
+  }
+  .ring-main {
+    --tw-ring-color: var(--main-color);
+  }
+  
+  /* Hover states */
+  .hover\:bg-main:hover {
+    background-color: var(--main-color);
+  }
+  .hover\:text-main:hover {
+    color: var(--main-color);
+  }
+  .hover\:border-main:hover {
+    border-color: var(--main-color);
+  }
+  
+  /* Focus states */
+  .focus\:ring-main:focus {
+    --tw-ring-color: var(--main-color);
+  }
 }

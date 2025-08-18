@@ -10,10 +10,11 @@ const NeedOfWebsite = () => {
         "Compassion in every drop: Our promise of ethical, cruelty-free products.",
     },
     {
-      icon: Droplet,
-      title: "FRAGRANCE FORWARD",
-      description: "Opulent and imported fragrance oils in each creation.",
-    },
+    icon: Droplet, // you can swap this for a leaf icon 🌱 (Lucide has 'Leaf')
+    title: "SUSTAINABLE MATERIALS",
+    description:
+      "Eco-friendly jute products that are biodegradable and kind to the earth.",
+  },
     {
       icon: Wallet,
       title: "AFFORDABLE LUXURY",

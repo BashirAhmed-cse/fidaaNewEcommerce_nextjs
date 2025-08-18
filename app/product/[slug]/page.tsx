@@ -153,11 +153,11 @@ const ProductPage = async ({
                     ${product.price}
                   </span> */}
                   <span className="text-2xl lg:text-3xl font-bold text-green-500">
-                    ${product.price}
+                    £{product.price}
                   </span>
                   <span>M.R.P:</span>
                   <span className="text-lg text-gray-500 line-through">
-                    ${product.priceBefore.toFixed(2)}
+                    £{product.priceBefore.toFixed(2)}
                   </span>
                   {product.discount > 0 && (
                     <span className="text-red-500 font-semibold">

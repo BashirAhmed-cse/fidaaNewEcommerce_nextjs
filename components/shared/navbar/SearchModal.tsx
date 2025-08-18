@@ -113,10 +113,10 @@ const SearchModal = ({
           <div>
             <h4 className="font-semibold text-sm truncate">{product.name}</h4>
             <div className="flex items-baseline gap-2">
-              <span className="font-bold">${discountedPrice}</span>
+              <span className="font-bold">£{discountedPrice}</span>
               {subProduct?.discount > 0 && (
                 <span className="text-sm text-gray-500 line-through">
-                  ${originalPrice}
+                  £{originalPrice}
                 </span>
               )}
             </div>
@@ -132,7 +132,7 @@ const SearchModal = ({
         <div className="w-full max-w-md md:max-w-lg lg:max-w-2xl mx-4 md:mx-6 p-4 sm:p-6 bg-background rounded-lg shadow-lg z-50">
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold">Search</h2>
+            <h2 className="text-lg font-semibold text-main">Search</h2>
             <Button variant="ghost" size="icon" onClick={() => setOpen(false)}>
               <X className="h-4 w-4" />
             </Button>
@@ -149,7 +149,7 @@ const SearchModal = ({
 
           {/* Trending */}
           <div className="mb-6">
-            <h3 className="text-sm font-semibold mb-2">Trending Searches</h3>
+            <h3 className="text-sm font-semibold mb-2 text-main">Trending Searches</h3>
             <div className="flex flex-wrap gap-2">
               {trendingSearches.map((search) => (
                 <Button

@@ -98,15 +98,15 @@ const CartDrawer = () => {
             size={"icon"}
             className="relative"
           >
-            <ShoppingBag size={24} />
-            <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-black rounded-full">
+            <ShoppingBag size={24} className="text-main"/>
+            <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-main rounded-full">
               {cart.length}
             </span>
           </Button>
         </SheetTrigger>
         <SheetContent className="w-[90%] max-w-[450px] sm:max-w-[540px]">
           <SheetHeader>
-            <SheetTitle className="subHeading">CART</SheetTitle>
+            <SheetTitle className="subHeading text-main">CART</SheetTitle>
           </SheetHeader>
           <div className="mt-4 space-y-4">
             {cart.length === 0 ? (
@@ -141,7 +141,7 @@ const CartDrawer = () => {
             >
               {loading
                 ? "Loading..."
-                : `Continue to Secure Checkout - $${total}`}
+                : `Continue to Secure Checkout - £${total}`}
               <FaArrowCircleRight />
             </Button>
           </div>
