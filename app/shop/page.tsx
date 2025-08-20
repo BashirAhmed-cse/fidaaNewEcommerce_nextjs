@@ -8,7 +8,29 @@ import { ChevronDown } from "lucide-react";
 import { getAllProducts } from "@/lib/database/actions/product.actions";
 import { Slider } from "@/components/ui/slider";
 
-type ProductType = {
+// Interface for raw product data from getAllProducts
+interface RawSubProduct {
+  price?: number;
+  originalPrice?: number;
+  discount?: number;
+  isSale?: boolean;
+  images?: Array<{ url: string }>;
+  sizes?: Array<{ price: number }>;
+}
+
+interface RawProduct {
+  _id: string;
+  name: string;
+  category?: { _id: string; name: string };
+  subProducts: RawSubProduct[];
+  rating: number;
+  numReviews: number;
+  featured: boolean;
+  slug: string;
+}
+
+// Interface for transformed product data
+interface ProductType {
   id: string;
   name: string;
   category: string;
@@ -23,17 +45,23 @@ type ProductType = {
   isSale: boolean;
   slug: string;
   prices: number[];
-};
+}
+
+interface Category {
+  id: string;
+  name: string;
+}
 
 const ShopPage = () => {
-  const [sortBy, setSortBy] = useState("Featured");
+  const [sortBy, setSortBy] = useState<string>("Featured");
   const [products, setProducts] = useState<ProductType[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState<number>(1);
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 5000]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [maxPrice, setMaxPrice] = useState(5000);
+  const [isFilterOpen, setIsFilterOpen] = useState<boolean>(false);
+  const [maxPrice, setMaxPrice] = useState<number>(5000);
 
   const searchParams = useSearchParams();
   const productsPerPage = 12;
@@ -42,34 +70,37 @@ const ShopPage = () => {
     const fetchProducts = async () => {
       try {
         setLoading(true);
+        setError(null);
         const response = await getAllProducts();
-        const fetched = response?.products || [];
+        const fetched: RawProduct[] = response?.products || [];
 
-        const transformed = fetched.map((product: any) => {
-          const basePrice = product.subProducts[0]?.price || 0;
+        const transformed: ProductType[] = fetched.map((product: RawProduct) => {
+          const basePrice = product.subProducts[0]?.price ?? 0;
           const sizes =
-            product.subProducts[0]?.sizes?.map((s: any) => s.price) || [];
+            product.subProducts[0]?.sizes
+              ?.map((s) => s.price)
+              .filter((price): price is number => typeof price === "number") ?? [];
           const allPrices = sizes.length > 0 ? sizes : [basePrice];
 
           return {
             id: product._id,
             name: product.name,
-            category: product.category?.name || "Unknown",
-            categoryId: product.category?._id || "uncategorized",
-            image: product.subProducts[0]?.images[0]?.url || "",
+            category: product.category?.name ?? "Unknown",
+            categoryId: product.category?._id ?? "uncategorized",
+            image: product.subProducts[0]?.images?.[0]?.url ?? "",
             rating: product.rating,
             reviews: product.numReviews,
             price: basePrice,
-            originalPrice: product.subProducts[0]?.originalPrice || basePrice,
-            discount: product.subProducts[0]?.discount || 0,
+            originalPrice: product.subProducts[0]?.originalPrice ?? basePrice,
+            discount: product.subProducts[0]?.discount ?? 0,
             isBestseller: product.featured,
-            isSale: product.subProducts[0]?.isSale || false,
+            isSale: product.subProducts[0]?.isSale ?? false,
             slug: product.slug,
             prices: [...allPrices].sort((a, b) => a - b),
           };
         });
 
-        const allPrices = transformed.flatMap((p) => p.prices);
+        const allPrices = transformed.flatMap((p: ProductType) => p.prices);
         const computedMax =
           allPrices.length > 0 ? Math.max(...allPrices) : 5000;
 
@@ -94,6 +125,7 @@ const ShopPage = () => {
         }
       } catch (error) {
         console.error("Failed to fetch products:", error);
+        setError("Failed to load products. Please try again later.");
       } finally {
         setLoading(false);
       }
@@ -102,7 +134,7 @@ const ShopPage = () => {
     fetchProducts();
   }, [searchParams]);
 
-  const categories = useMemo(
+  const categories = useMemo<Category[]>(
     () =>
       Array.from(
         new Map(
@@ -164,7 +196,7 @@ const ShopPage = () => {
     const indexOfLastProduct = currentPage * productsPerPage;
     const indexOfFirstProduct = indexOfLastProduct - productsPerPage;
     const paginated = sorted.slice(indexOfFirstProduct, indexOfLastProduct);
-    const total = Math.ceil(sorted.length / productsPerPage);
+    const total = Math.max(1, Math.ceil(sorted.length / productsPerPage));
 
     return {
       filteredProducts: sorted,
@@ -179,9 +211,8 @@ const ShopPage = () => {
         ? prev.filter((c) => c !== categoryId)
         : [...prev, categoryId]
     );
-    setPriceRange([0, maxPrice]);
     setCurrentPage(1);
-  }, [maxPrice]);
+  }, []);
 
   const clearFilters = useCallback(() => {
     setSelectedCategories([]);
@@ -216,6 +247,7 @@ const ShopPage = () => {
                   <button
                     onClick={clearFilters}
                     className="text-sm text-gray-500 hover:text-gray-700"
+                    aria-label="Clear all filters"
                   >
                     Clear all
                   </button>
@@ -230,8 +262,9 @@ const ShopPage = () => {
                   max={maxPrice}
                   step={100}
                   value={priceRange}
-                  onValueChange={setPriceRange} // live feedback
-                  onValueCommit={debouncedSetPriceRange} // apply on stop
+                  onValueChange={setPriceRange}
+                  onValueCommit={debouncedSetPriceRange}
+                  aria-label="Price range filter"
                 />
                 <div className="flex justify-between text-sm text-gray-600 mt-2">
                   <span>${priceRange[0]}</span>
@@ -251,6 +284,7 @@ const ShopPage = () => {
                         checked={selectedCategories.includes(category.id)}
                         onChange={() => toggleCategory(category.id)}
                         className="h-4 w-4 border-gray-300 rounded text-gray-900 focus:ring-gray-900"
+                        aria-label={`Filter by ${category.name}`}
                       />
                       <label
                         htmlFor={`cat-${category.id}`}
@@ -294,6 +328,7 @@ const ShopPage = () => {
                       setCurrentPage(1);
                     }}
                     className="appearance-none bg-white border border-gray-300 rounded-md px-4 py-2 pr-8 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-500"
+                    aria-label="Sort products"
                   >
                     <option>Featured</option>
                     <option>Price: Low to High</option>
@@ -313,6 +348,7 @@ const ShopPage = () => {
                 <div
                   className="absolute inset-0 bg-black bg-opacity-50"
                   onClick={() => setIsFilterOpen(false)}
+                  aria-label="Close filter drawer"
                 />
                 <div className="absolute left-0 top-0 h-full w-4/5 bg-white p-6 overflow-y-auto">
                   <div className="flex justify-between items-center mb-6">
@@ -338,6 +374,7 @@ const ShopPage = () => {
                       value={priceRange}
                       onValueChange={setPriceRange}
                       onValueCommit={debouncedSetPriceRange}
+                      aria-label="Price range filter"
                     />
                     <div className="flex justify-between text-sm text-gray-600 mt-2">
                       <span>${priceRange[0]}</span>
@@ -359,6 +396,7 @@ const ShopPage = () => {
                             checked={selectedCategories.includes(category.id)}
                             onChange={() => toggleCategory(category.id)}
                             className="h-4 w-4 border-gray-300 rounded text-gray-900 focus:ring-gray-900"
+                            aria-label={`Filter by ${category.name}`}
                           />
                           <label
                             htmlFor={`mob-cat-${category.id}`}
@@ -374,6 +412,7 @@ const ShopPage = () => {
                   <button
                     onClick={applyFilters}
                     className="w-full bg-gray-900 text-white py-2 rounded-md mt-4"
+                    aria-label="Apply filters"
                   >
                     Apply Filters
                   </button>
@@ -382,15 +421,27 @@ const ShopPage = () => {
             )}
 
             {/* Product Grid / States */}
-            {loading ? (
+            {error ? (
+              <div className="text-center py-12" aria-live="polite">
+                <h3 className="text-lg font-medium text-gray-900 mb-2">{error}</h3>
+                <button
+                  onClick={() => fetchProducts()}
+                  className="text-sm text-gray-900 underline hover:text-gray-700"
+                  aria-label="Retry loading products"
+                >
+                  Retry
+                </button>
+              </div>
+            ) : loading ? (
               <div
                 className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
                 aria-live="polite"
               >
-                {[...Array(8)].map((_, i) => (
+                {[...Array(productsPerPage)].map((_, i) => (
                   <div
                     key={i}
                     className="bg-white rounded-lg overflow-hidden shadow-sm animate-pulse"
+                    aria-label="Loading product"
                   >
                     <div className="aspect-square bg-gray-200" />
                     <div className="p-4 space-y-3">
@@ -410,6 +461,7 @@ const ShopPage = () => {
                 <button
                   onClick={clearFilters}
                   className="text-sm text-gray-900 underline hover:text-gray-700"
+                  aria-label="Clear all filters"
                 >
                   Clear all filters
                 </button>
@@ -444,7 +496,7 @@ const ShopPage = () => {
                       {Array.from(
                         { length: Math.min(5, totalPages) },
                         (_, i) => {
-                          let pageNum;
+                          let pageNum: number;
                           if (totalPages <= 5) pageNum = i + 1;
                           else if (currentPage <= 3) pageNum = i + 1;
                           else if (currentPage >= totalPages - 2)
