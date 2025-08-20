@@ -66,73 +66,71 @@ const ShopPage = () => {
   const searchParams = useSearchParams();
   const productsPerPage = 12;
 
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const response = await getAllProducts();
-        const fetched: RawProduct[] = response?.products || [];
+ useEffect(() => {
+  const fetchProducts = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await getAllProducts();
+      const fetched: RawProduct[] = response?.products || [];
 
-        const transformed: ProductType[] = fetched.map((product: RawProduct) => {
-          const basePrice = product.subProducts[0]?.price ?? 0;
-          const sizes =
-            product.subProducts[0]?.sizes
-              ?.map((s) => s.price)
-              .filter((price): price is number => typeof price === "number") ?? [];
-          const allPrices = sizes.length > 0 ? sizes : [basePrice];
+      const transformed: ProductType[] = fetched.map((product: RawProduct) => {
+        const basePrice = product.subProducts[0]?.price ?? 0;
+        const sizes =
+          product.subProducts[0]?.sizes
+            ?.map((s) => s.price)
+            .filter((price): price is number => typeof price === "number") ?? [];
+        const allPrices = sizes.length > 0 ? sizes : [basePrice];
 
-          return {
-            id: product._id,
-            name: product.name,
-            category: product.category?.name ?? "Unknown",
-            categoryId: product.category?._id ?? "uncategorized",
-            image: product.subProducts[0]?.images?.[0]?.url ?? "",
-            rating: product.rating,
-            reviews: product.numReviews,
-            price: basePrice,
-            originalPrice: product.subProducts[0]?.originalPrice ?? basePrice,
-            discount: product.subProducts[0]?.discount ?? 0,
-            isBestseller: product.featured,
-            isSale: product.subProducts[0]?.isSale ?? false,
-            slug: product.slug,
-            prices: [...allPrices].sort((a, b) => a - b),
-          };
-        });
+        return {
+          id: product._id,
+          name: product.name,
+          category: product.category?.name ?? "Unknown",
+          categoryId: product.category?._id ?? "uncategorized",
+          image: product.subProducts[0]?.images?.[0]?.url ?? "",
+          rating: product.rating,
+          reviews: product.numReviews,
+          price: basePrice,
+          originalPrice: product.subProducts[0]?.originalPrice ?? basePrice,
+          discount: product.subProducts[0]?.discount ?? 0,
+          isBestseller: product.featured,
+          isSale: product.subProducts[0]?.isSale ?? false,
+          slug: product.slug,
+          prices: [...allPrices].sort((a, b) => a - b),
+        };
+      });
 
-        const allPrices = transformed.flatMap((p: ProductType) => p.prices);
-        const computedMax =
-          allPrices.length > 0 ? Math.max(...allPrices) : 5000;
+      const allPrices = transformed.flatMap((p: ProductType) => p.prices);
+      const computedMax =
+        allPrices.length > 0 ? Math.max(...allPrices) : 5000;
 
-        setProducts(transformed);
-        setPriceRange([0, computedMax]);
-        setMaxPrice(computedMax);
+      setProducts(transformed);
+      setPriceRange([0, computedMax]);
+      setMaxPrice(computedMax);
 
-        // Handle category query param (supports multiple, comma-separated)
-        const categoryParam = searchParams.get("category");
-        if (categoryParam) {
-          const requestedCategories = categoryParam
-            .split(",")
-            .map((c) => c.toLowerCase());
+      // Handle category query param
+      const categoryParam = searchParams.get("category");
+      if (categoryParam) {
+        const requestedCategories = categoryParam
+          .split(",")
+          .map((c) => c.toLowerCase());
 
-          const matched = transformed
-            .filter((p) =>
-              requestedCategories.includes(p.category.toLowerCase())
-            )
-            .map((p) => p.categoryId);
+        const matched = transformed
+          .filter((p) => requestedCategories.includes(p.category.toLowerCase()))
+          .map((p) => p.categoryId);
 
-          if (matched.length) setSelectedCategories(matched);
-        }
-      } catch (error) {
-        console.error("Failed to fetch products:", error);
-        setError("Failed to load products. Please try again later.");
-      } finally {
-        setLoading(false);
+        if (matched.length) setSelectedCategories(matched);
       }
-    };
+    } catch (error) {
+      console.error("Failed to fetch products:", error);
+      setError("Failed to load products. Please try again later.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    fetchProducts();
-  }, [searchParams]);
+  fetchProducts();
+}, [searchParams]);
 
   const categories = useMemo<Category[]>(
     () =>
