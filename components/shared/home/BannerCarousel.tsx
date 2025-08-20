@@ -53,7 +53,7 @@ const BannerCarousel = ({ desktopImages, mobileImages }: BannerCarouselProps) =>
   }, [nextSlide]);
 
   return (
-    <div className="relative w-full h-[300px]  overflow-hidden mb-6 rounded-lg shadow-md">
+    <div className="relative w-full h-[400px]  overflow-hidden mb-6 rounded-lg shadow-md">
       {images.map((src, index) => (
         <div
           key={index}
@@ -61,7 +61,7 @@ const BannerCarousel = ({ desktopImages, mobileImages }: BannerCarouselProps) =>
             index === currentIndex ? "opacity-100 z-10" : "opacity-0 z-0"
           }`}
         >
-          <div className="relative w-full h-[300px]">
+          <div className="relative w-full h-[400px]">
             <Image
               src={src}
               alt={`Slide ${index + 1}`}
