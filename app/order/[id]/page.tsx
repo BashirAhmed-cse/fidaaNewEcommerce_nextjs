@@ -1,8 +1,11 @@
+'use client';
+
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
-import { ObjectId } from "mongodb";
-import OrderedProductDetailedView from "@/components/shared/order/OrderProductDetailedView";
+import { toast } from "sonner";
+import OrderedProductDetailedView from "@/components/shared/order/OrderProductDeatiledView";
 import Image from "next/image";
 
 // Mock data since we can't access the database functions directly
@@ -52,19 +55,51 @@ const mockOrderData = {
   }
 };
 
-const OrderPage = ({ id }: { id: string }) => {
-  // In a real implementation, you would fetch data based on ID
-  // For this example, we'll use mock data
-  const orderData = mockOrderData;
+const OrderPage = ({ params }: { params: Promise<{ id: string }> }) => {
+  const [orderData, setOrderData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [orderId, setOrderId] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Resolve the params promise
+    const resolveParams = async () => {
+      try {
+        const resolvedParams = await params;
+        setOrderId(resolvedParams.id);
+        
+        // Simulate data fetching
+        setTimeout(() => {
+          setOrderData(mockOrderData);
+          setLoading(false);
+        }, 500);
+      } catch (error) {
+        toast.error("Failed to load order details");
+        setLoading(false);
+      }
+    };
+
+    resolveParams();
+  }, [params]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading order details...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!orderData?.success) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="bg-white p-8 rounded-lg shadow-md text-center">
+        <div className="bg-white p-8 rounded-lg shadow-md text-center max-w-md">
           <h2 className="text-2xl font-bold text-red-600 mb-4">Order Not Found</h2>
-          <p className="text-gray-600 mb-6">The order you're looking for doesn't exist.</p>
+          <p className="text-gray-600 mb-6">The order you're looking for doesn't exist or may have been removed.</p>
           <Link href="/">
-            <Button>Return to Home</Button>
+            <Button className="bg-blue-600 hover:bg-blue-700">Return to Home</Button>
           </Link>
         </div>
       </div>
@@ -90,15 +125,15 @@ const OrderPage = ({ id }: { id: string }) => {
                 <ArrowLeft className="w-5 h-5 mr-2" />
               </Link>
               <Link href="/">
-                <span className="text-sm font-medium">Home</span>
+                <span className="text-sm font-medium hover:underline">Home</span>
               </Link>
             </div>
 
             <div className="text-center mb-6">
-              <h1 className="text-2xl font-bold capitalize">
+              <h1 className="text-2xl md:text-3xl font-bold capitalize">
                 THANK YOU, {orderData.orderData.user.username}
               </h1>
-              <p className="text-gray-600">
+              <p className="text-gray-600 mt-2">
                 Order ID: {orderData.orderData._id}
               </p>
             </div>
@@ -110,7 +145,7 @@ const OrderPage = ({ id }: { id: string }) => {
                   <div className="font-semibold text-sm mb-1">
                     ORDER NUMBER:
                   </div>
-                  <div>{orderData.orderData._id}</div>
+                  <div className="text-sm truncate">{orderData.orderData._id}</div>
                 </div>
                 <div className="w-full sm:w-1/2 md:w-1/4 p-4 border-b md:border-b-0 md:border-r">
                   <div className="font-semibold text-sm mb-1">DATE:</div>
@@ -148,7 +183,7 @@ const OrderPage = ({ id }: { id: string }) => {
                       Your order is confirmed
                     </h2>
                     <p className="text-gray-600">
-                      Order will be delivered to you in 2-3 days on following
+                      Order will be delivered to you in 2-3 days at the following
                       address
                     </p>
                   </div>
@@ -190,17 +225,13 @@ const OrderPage = ({ id }: { id: string }) => {
                       $ {orderData.orderData.total.toFixed(2)}
                     </span>
                   </div>
-                  {orderData.orderData.products.map((item, index) => (
+                  {orderData.orderData.products.map((item: any, index: number) => (
                     <div key={index} className="mb-4 pb-4 border-b last:border-b-0">
                       <div className="flex items-center">
                         <div className="w-16 h-16 bg-gray-200 rounded-md mr-4 flex items-center justify-center">
-                          <Image
-                            src={item.image}
-                            alt={item.name}
-                            width={60}
-                            height={60}
-                            className="rounded"
-                          />
+                          <div className="w-12 h-12 bg-gray-300 rounded flex items-center justify-center text-gray-500 text-xs">
+                            Image
+                          </div>
                         </div>
                         <div className="flex-1">
                           <h3 className="font-medium">{item.name}</h3>
@@ -276,14 +307,16 @@ const OrderPage = ({ id }: { id: string }) => {
                       </div>
                     )}
 
-                    <div className="flex justify-between font-semibold pt-2 border-t">
+                    <div className="flex justify-between font-semibold pt-2 border-t border-gray-300">
                       <span>Subtotal</span>
                       <span>${orderData.orderData.total.toFixed(2)}</span>
                     </div>
                   </div>
                 </div>
                 <Link href="/">
-                  <Button className="w-full mt-6 py-6 text-lg">CONTINUE SHOPPING</Button>
+                  <Button className="w-full mt-6 py-6 text-lg bg-blue-600 hover:bg-blue-700">
+                    CONTINUE SHOPPING
+                  </Button>
                 </Link>
               </div>
             </div>
@@ -294,24 +327,4 @@ const OrderPage = ({ id }: { id: string }) => {
   );
 };
 
-// Wrapper component to handle the params promise
-export default async function OrderPageWrapper({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  
-  // Check if the ID is a valid ObjectId
-  if (!ObjectId.isValid(id)) {
-    return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="bg-white p-8 rounded-lg shadow-md text-center">
-          <h2 className="text-2xl font-bold text-red-600 mb-4">Invalid Order ID</h2>
-          <p className="text-gray-600 mb-6">The order ID you provided is not valid.</p>
-          <Link href="/">
-            <Button>Return to Home</Button>
-          </Link>
-        </div>
-      </div>
-    );
-  }
-  
-  return <OrderPage id={id} />;
-}
+export default OrderPage;
