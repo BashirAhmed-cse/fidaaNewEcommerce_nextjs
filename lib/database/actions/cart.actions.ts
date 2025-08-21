@@ -4,7 +4,7 @@ import { handleError } from "@/lib/utils";
 import { connectToDatabase } from "../connect";
 import Product from "../models/product.model";
 import User from "../models/user.model";
-import Cart from "../models/cart.model";
+import Cart, { ICart } from "../models/cart.model";
 
 // Cart operations for user:
 export async function saveCartForUser(cart: any, clerkId: string) {
@@ -99,7 +99,7 @@ export async function getSavedCartForUser(clerkId: string) {
   try {
     await connectToDatabase();
     const user = await User.findOne({ clerkId });
-    const cart = await Cart.findOne({ user: user._id });
+ const cart: ICart | null = await Cart.findOne({ user: user._id }).lean();
     return {
       user: JSON.parse(JSON.stringify(user)),
       cart: JSON.parse(JSON.stringify(cart)),

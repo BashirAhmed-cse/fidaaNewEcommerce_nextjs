@@ -145,10 +145,15 @@ const ShopPage = () => {
     [products]
   );
 
+  // Fix: Handle the Slider component's expected value type
+  const handlePriceRangeChange = useCallback((value: number[]) => {
+    setPriceRange([value[0], value[1]]);
+  }, []);
+
   const debouncedSetPriceRange = useMemo(
     () =>
-      debounce((val: [number, number]) => {
-        setPriceRange(val);
+      debounce((val: number[]) => {
+        setPriceRange([val[0], val[1]]);
         setCurrentPage(1);
       }, 300),
     []
@@ -252,7 +257,7 @@ const ShopPage = () => {
                   max={maxPrice}
                   step={100}
                   value={priceRange}
-                  onValueChange={setPriceRange}
+                  onValueChange={handlePriceRangeChange}
                   onValueCommit={debouncedSetPriceRange}
                   aria-label="Price range filter"
                 />
@@ -352,7 +357,7 @@ const ShopPage = () => {
                       max={maxPrice}
                       step={100}
                       value={priceRange}
-                      onValueChange={setPriceRange}
+                      onValueChange={handlePriceRangeChange}
                       onValueCommit={debouncedSetPriceRange}
                       aria-label="Price range filter"
                     />
@@ -400,7 +405,7 @@ const ShopPage = () => {
               <div className="text-center py-12" aria-live="polite">
                 <h3 className="text-lg font-medium text-gray-900 mb-2">{error}</h3>
                 <button
-                  onClick={() => fetchProducts()}
+                  onClick={() => window.location.reload()}
                   className="text-sm text-gray-900 underline hover:text-gray-700"
                   aria-label="Retry loading products"
                 >

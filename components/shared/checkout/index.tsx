@@ -23,13 +23,19 @@ import Image from "next/image";
 
 // TypeScript interfaces for type safety
 interface CartItem {
-  price: number;
-  qty: number;
-  saved: number;
+  product: string;
   name: string;
+  image: string;
+  saved: number;
   size: string;
-  image?: string;
+  qty: number;
+  color: { color: string; image: string };
+  price: number;
+  status?: string;
+  productCompletedAt?: Date;
+  _id?: string;
 }
+
 
 interface Address {
   firstName: string;
@@ -111,15 +117,26 @@ export default function CheckoutComponent() {
   });
 
   // Fetch user cart and details
-  useEffect(() => {
-    if (userId) {
-      getSavedCartForUser(userId).then((res) => {
-        setData(res);
-        setUser(res?.user);
-        setAddress(res?.address);
-      });
-    }
-  }, [userId]);
+ // Fetch user cart and details
+useEffect(() => {
+  if (userId) {
+    getSavedCartForUser(userId).then((res) => {
+      if (res?.cart && res?.user) {
+        setData({
+          cart: res.cart.products || [],
+          products: res.cart.products || [],
+          cartTotal: res.cart.cartTotal || 0,
+          user: res.user,
+          address: res.address || undefined,
+        });
+        setUser(res.user);
+        setAddress(res.address || null);
+      }
+    });
+  }
+}, [userId]);
+
+
 
   // Update form values when address changes
   useEffect(() => {
@@ -202,61 +219,80 @@ export default function CheckoutComponent() {
     useCartStore.persist.rehydrate();
   }, []);
 
-  const placeOrderHandler = async () => {
-    try {
-      setPlaceOrderLoading(true);
+ const placeOrderHandler = async () => {
+  try {
+    setPlaceOrderLoading(true);
 
-      if (paymentMethod === "") {
-        toast.error("Please choose a payment method.");
-        return;
-      } else if (!user?.address?.firstName) {
-        toast.error("Please fill in all details in the billing address.");
-        return;
-      }
-
-      if (paymentMethod === "stripe") {
-        const response = await createStripeOrder(
-          data?.products || [],
-          user?.address,
-          paymentMethod,
-          totalAfterDiscount !== "" ? totalAfterDiscount : data?.cartTotal || 0,
-          data?.cartTotal || 0,
-          coupon,
-          user?._id || "",
-          totalSaved
-        );
-
-        if (response?.sessionUrl) {
-          window.location.href = response.sessionUrl;
-        } else {
-          toast.error("Stripe session URL not found");
-          throw new Error("Stripe session URL not found");
-        }
-      } else {
-        const orderResponse = await createOrder(
-          data?.products || [],
-          user?.address,
-          paymentMethod,
-          totalAfterDiscount !== "" ? totalAfterDiscount : data?.cartTotal || 0,
-          data?.cartTotal || 0,
-          coupon,
-          user?._id || "",
-          totalSaved
-        );
-        if (orderResponse?.success) {
-          emptyCart();
-          router.replace(`/order/${orderResponse.orderId}`);
-        } else {
-          toast.error(orderResponse?.message || "Failed to create order");
-        }
-      }
-    } catch (error) {
-      console.error("Error placing order:", error);
-      toast.error("An error occurred. Please try again.");
-    } finally {
-      setPlaceOrderLoading(false);
+    if (paymentMethod === "") {
+      toast.error("Please choose a payment method.");
+      return;
+    } else if (!user?.address?.firstName) {
+      toast.error("Please fill in all details in the billing address.");
+      return;
     }
-  };
+
+    // Map CartItem[] → required order type
+    const orderProducts = (data?.products || []).map((item: CartItem) => ({
+      product: item._id || "",  // required by API
+      name: item.name,
+      image: item.image || "",
+      size: item.size,
+      qty: item.qty,
+      color: item.color || { color: "", image: "" },
+      price: item.price,
+      status: item.status || "pending", 
+      productCompletedAt: item.productCompletedAt || new Date(),
+      _id: item._id || "", 
+    }));
+
+    const totalAmount = totalAfterDiscount !== "" 
+  ? Number(totalAfterDiscount) 
+  : data?.cartTotal || 0;
+
+    if (paymentMethod === "stripe") {
+      const response = await createStripeOrder(
+        orderProducts,
+        user?.address,
+        paymentMethod,
+        totalAmount,
+        data?.cartTotal || 0,
+        coupon,
+        user?._id || "",
+        totalSaved
+      );
+
+      if (response?.sessionUrl) {
+        window.location.href = response.sessionUrl;
+      } else {
+        toast.error("Stripe session URL not found");
+        throw new Error("Stripe session URL not found");
+      }
+    } else {
+      const orderResponse = await createOrder(
+        orderProducts,
+        user?.address,
+        paymentMethod,
+        totalAmount,
+        data?.cartTotal || 0,
+        coupon,
+        user?._id || "",
+        totalSaved
+      );
+      if (orderResponse?.success) {
+        emptyCart();
+        router.replace(`/order/${orderResponse.orderId}`);
+      } else {
+        toast.error(orderResponse?.message || "Failed to create order");
+      }
+    }
+  } catch (error) {
+    console.error("Error placing order:", error);
+    toast.error("An error occurred. Please try again.");
+  } finally {
+    setPlaceOrderLoading(false);
+  }
+};
+
 
   return (
     <div className="container mx-auto p-4 md:p-8">
@@ -415,7 +451,9 @@ export default function CheckoutComponent() {
               </h2>
               <RadioGroup
                 value={paymentMethod}
-                onValueChange={setPaymentMethod}
+               onValueChange={(value: string) =>
+    setPaymentMethod(value as "" | "stripe" | "cod")
+  }
               >
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="cod" id="cod" />
@@ -518,13 +556,13 @@ export default function CheckoutComponent() {
                     Coupon applied: <b className="text-[15px]">- {discount}%</b>
                   </span>
                 )}
-                {totalAfterDiscount < (data?.cartTotal || 0) &&
-                  totalAfterDiscount !== "" && (
-                    <span className="p-[5px] text-lg flex justify-between border border-[#cccccc17]">
-                      Total after Discount:{" "}
-                      <b className="text-[15px]">$ {totalAfterDiscount}</b>
-                    </span>
-                  )}
+                {Number(totalAfterDiscount) < (data?.cartTotal || 0) &&
+ totalAfterDiscount !== "" && (
+   <span className="p-[5px] text-lg flex justify-between border border-[#cccccc17]">
+     Total after Discount:{" "}
+     <b className="text-[15px]">$ {totalAfterDiscount}</b>
+   </span>
+ )}
               </div>
             </div>
 
