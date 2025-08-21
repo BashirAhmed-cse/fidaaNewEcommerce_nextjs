@@ -100,7 +100,7 @@ const ShopPage = () => {
         });
 
         // Explicitly type the flatMap parameter
-        const allPrices: number[] = transformed.flatMap((p: ProductType) => p.prices);
+       const allPrices: number[] = transformed.flatMap((p: ProductType) => p.prices);
         const computedMax: number =
           allPrices.length > 0 ? Math.max(...allPrices) : 5000;
 
