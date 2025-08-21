@@ -29,7 +29,6 @@ interface RawProduct {
   slug: string;
 }
 
-// Interface for transformed product data
 interface ProductType {
   id: string;
   name: string;
@@ -66,71 +65,72 @@ const ShopPage = () => {
   const searchParams = useSearchParams();
   const productsPerPage = 12;
 
- useEffect(() => {
-  const fetchProducts = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await getAllProducts();
-      const fetched: RawProduct[] = response?.products || [];
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await getAllProducts();
+        const fetched: RawProduct[] = response?.products || [];
 
-      const transformed: ProductType[] = fetched.map((product: RawProduct) => {
-        const basePrice = product.subProducts[0]?.price ?? 0;
-        const sizes =
-          product.subProducts[0]?.sizes
-            ?.map((s) => s.price)
-            .filter((price): price is number => typeof price === "number") ?? [];
-        const allPrices = sizes.length > 0 ? sizes : [basePrice];
+        const transformed: ProductType[] = fetched.map((product: RawProduct) => {
+          const basePrice = product.subProducts[0]?.price ?? 0;
+          const sizes =
+            product.subProducts[0]?.sizes
+              ?.map((s) => s.price)
+              .filter((price): price is number => typeof price === "number") ?? [];
+          const allPrices = sizes.length > 0 ? sizes : [basePrice];
 
-        return {
-          id: product._id,
-          name: product.name,
-          category: product.category?.name ?? "Unknown",
-          categoryId: product.category?._id ?? "uncategorized",
-          image: product.subProducts[0]?.images?.[0]?.url ?? "",
-          rating: product.rating,
-          reviews: product.numReviews,
-          price: basePrice,
-          originalPrice: product.subProducts[0]?.originalPrice ?? basePrice,
-          discount: product.subProducts[0]?.discount ?? 0,
-          isBestseller: product.featured,
-          isSale: product.subProducts[0]?.isSale ?? false,
-          slug: product.slug,
-          prices: [...allPrices].sort((a, b) => a - b),
-        };
-      });
+          return {
+            id: product._id,
+            name: product.name,
+            category: product.category?.name ?? "Unknown",
+            categoryId: product.category?._id ?? "uncategorized",
+            image: product.subProducts[0]?.images?.[0]?.url ?? "",
+            rating: product.rating,
+            reviews: product.numReviews,
+            price: basePrice,
+            originalPrice: product.subProducts[0]?.originalPrice ?? basePrice,
+            discount: product.subProducts[0]?.discount ?? 0,
+            isBestseller: product.featured,
+            isSale: product.subProducts[0]?.isSale ?? false,
+            slug: product.slug,
+            prices: [...allPrices].sort((a, b) => a - b),
+          };
+        });
 
-      const allPrices = transformed.flatMap((p: ProductType) => p.prices);
-      const computedMax =
-        allPrices.length > 0 ? Math.max(...allPrices) : 5000;
+        // Explicitly type the flatMap parameter
+        const allPrices: number[] = transformed.flatMap((p: ProductType) => p.prices);
+        const computedMax: number =
+          allPrices.length > 0 ? Math.max(...allPrices) : 5000;
 
-      setProducts(transformed);
-      setPriceRange([0, computedMax]);
-      setMaxPrice(computedMax);
+        setProducts(transformed);
+        setPriceRange([0, computedMax]);
+        setMaxPrice(computedMax);
 
-      // Handle category query param
-      const categoryParam = searchParams.get("category");
-      if (categoryParam) {
-        const requestedCategories = categoryParam
-          .split(",")
-          .map((c) => c.toLowerCase());
+        // Handle category query param
+        const categoryParam = searchParams.get("category");
+        if (categoryParam) {
+          const requestedCategories = categoryParam
+            .split(",")
+            .map((c) => c.toLowerCase());
 
-        const matched = transformed
-          .filter((p) => requestedCategories.includes(p.category.toLowerCase()))
-          .map((p) => p.categoryId);
+          const matched = transformed
+            .filter((p) => requestedCategories.includes(p.category.toLowerCase()))
+            .map((p) => p.categoryId);
 
-        if (matched.length) setSelectedCategories(matched);
+          if (matched.length) setSelectedCategories(matched);
+        }
+      } catch (error) {
+        console.error("Failed to fetch products:", error);
+        setError("Failed to load products. Please try again later.");
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error("Failed to fetch products:", error);
-      setError("Failed to load products. Please try again later.");
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
 
-  fetchProducts();
-}, [searchParams]);
+    fetchProducts();
+  }, [searchParams]);
 
   const categories = useMemo<Category[]>(
     () =>
@@ -145,7 +145,6 @@ const ShopPage = () => {
     [products]
   );
 
-  // Debounced price filter
   const debouncedSetPriceRange = useMemo(
     () =>
       debounce((val: [number, number]) => {
@@ -157,28 +156,25 @@ const ShopPage = () => {
 
   useEffect(() => {
     return () => {
-      debouncedSetPriceRange.cancel(); // cleanup
+      debouncedSetPriceRange.cancel();
     };
   }, [debouncedSetPriceRange]);
 
   const { filteredProducts, totalPages, currentProducts } = useMemo(() => {
     let result = [...products];
 
-    // Price filter
     result = result.filter((product) =>
       product.prices.some(
         (price) => price >= priceRange[0] && price <= priceRange[1]
       )
     );
 
-    // Category filter
     if (selectedCategories.length > 0) {
       result = result.filter((product) =>
         selectedCategories.includes(product.categoryId)
       );
     }
 
-    // Sorting
     const sorted = [...result].sort((a, b) => {
       if (sortBy === "Price: Low to High")
         return Math.min(...a.prices) - Math.min(...b.prices);
@@ -190,7 +186,6 @@ const ShopPage = () => {
       return 0;
     });
 
-    // Pagination
     const indexOfLastProduct = currentPage * productsPerPage;
     const indexOfFirstProduct = indexOfLastProduct - productsPerPage;
     const paginated = sorted.slice(indexOfFirstProduct, indexOfLastProduct);
@@ -236,7 +231,6 @@ const ShopPage = () => {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="flex flex-col lg:flex-row gap-8">
-          {/* Sidebar filters (desktop) */}
           <div className="hidden lg:block w-64 flex-shrink-0">
             <div className="bg-white p-6 rounded-lg shadow-sm sticky top-4">
               <div className="flex justify-between items-center mb-6">
@@ -251,8 +245,6 @@ const ShopPage = () => {
                   </button>
                 )}
               </div>
-
-              {/* Price Range */}
               <div className="mb-8">
                 <h3 className="font-medium text-gray-900 mb-4">Price Range</h3>
                 <Slider
@@ -269,8 +261,6 @@ const ShopPage = () => {
                   <span>${priceRange[1]}</span>
                 </div>
               </div>
-
-              {/* Categories */}
               <div className="mb-4">
                 <h3 className="font-medium text-gray-900 mb-4">Categories</h3>
                 <div className="space-y-2 max-h-60 overflow-y-auto">
@@ -296,10 +286,7 @@ const ShopPage = () => {
               </div>
             </div>
           </div>
-
-          {/* Products list */}
           <div className="flex-1">
-            {/* Top bar */}
             <div className="flex justify-between items-center mb-6">
               <button
                 onClick={() => setIsFilterOpen(true)}
@@ -313,7 +300,6 @@ const ShopPage = () => {
                   </span>
                 )}
               </button>
-
               <div className="relative">
                 <div className="flex items-center">
                   <span className="text-sm text-gray-600 mr-2 hidden sm:inline">
@@ -339,8 +325,6 @@ const ShopPage = () => {
                 </div>
               </div>
             </div>
-
-            {/* Mobile filter drawer */}
             {isFilterOpen && (
               <div className="lg:hidden fixed inset-0 z-50">
                 <div
@@ -359,8 +343,6 @@ const ShopPage = () => {
                       ✕
                     </button>
                   </div>
-
-                  {/* Price Range */}
                   <div className="mb-8">
                     <h3 className="font-medium text-gray-900 mb-4">
                       Price Range
@@ -379,8 +361,6 @@ const ShopPage = () => {
                       <span>${priceRange[1]}</span>
                     </div>
                   </div>
-
-                  {/* Categories */}
                   <div className="mb-4">
                     <h3 className="font-medium text-gray-900 mb-4">
                       Categories
@@ -406,7 +386,6 @@ const ShopPage = () => {
                       ))}
                     </div>
                   </div>
-
                   <button
                     onClick={applyFilters}
                     className="w-full bg-gray-900 text-white py-2 rounded-md mt-4"
@@ -417,8 +396,6 @@ const ShopPage = () => {
                 </div>
               </div>
             )}
-
-            {/* Product Grid / States */}
             {error ? (
               <div className="text-center py-12" aria-live="polite">
                 <h3 className="text-lg font-medium text-gray-900 mb-2">{error}</h3>
@@ -467,8 +444,6 @@ const ShopPage = () => {
             ) : (
               <>
                 <ProductCard heading="" shop={true} products={currentProducts} />
-
-                {/* Pagination */}
                 {totalPages > 1 && (
                   <div className="flex justify-center mt-8">
                     <nav
@@ -490,7 +465,6 @@ const ShopPage = () => {
                       >
                         ← Prev
                       </button>
-
                       {Array.from(
                         { length: Math.min(5, totalPages) },
                         (_, i) => {
@@ -517,7 +491,6 @@ const ShopPage = () => {
                           );
                         }
                       )}
-
                       <button
                         onClick={() =>
                           setCurrentPage((prev) =>
