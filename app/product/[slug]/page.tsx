@@ -41,6 +41,7 @@ export async function generateMetadata({
     description: product.description,
   };
 }
+
 const ProductPage = async ({
   params,
   searchParams,
@@ -53,34 +54,40 @@ const ProductPage = async ({
   const size = Number((await searchParams).size) || 0;
   const sizeforButton = Number((await searchParams).size);
   const product = await getSingleProduct(slug, style, size);
+  
   if (!product.success) {
     return <IdInvalidError />;
   }
+  
   const images = product.subProducts[0].images.map((image: any) => image.url);
   const subCategoryProducts = product.subCategories.map((i: any) => i._id);
-  const relatedProducts = await getRelatedProductsBySubCategoryIds(
-    subCategoryProducts
-  ).catch((err) => console.log(err));
-  const transformedProducts = relatedProducts?.products.map((product: any) => ({
+  
+  // Handle the case where getRelatedProductsBySubCategoryIds might fail
+  let relatedProducts;
+  try {
+    relatedProducts = await getRelatedProductsBySubCategoryIds(subCategoryProducts);
+  } catch (err) {
+    console.log(err);
+    relatedProducts = { success: false, products: [] };
+  }
+  
+  // Handle the case where relatedProducts might not have a products property
+  const transformedProducts = (relatedProducts?.products || []).map((product: any) => ({
     id: product._id,
     name: product.name,
-    category: product.category, // You might need to format this
-    image: product.subProducts[0]?.images[0].url || "", // Adjust to match your image structure
+    category: product.category,
+    image: product.subProducts[0]?.images[0]?.url || "",
     rating: product.rating,
     reviews: product.numReviews,
-    price: product.subProducts[0]?.price || 0, // Adjust to match your pricing structure
-    originalPrice: product.subProducts[0]?.originalPrice || 0, // Add logic for original price
+    price: product.subProducts[0]?.price || 0,
+    originalPrice: product.subProducts[0]?.originalPrice || 0,
     discount: product.subProducts[0]?.discount || 0,
     isBestseller: product.featured,
-    isSale: product.subProducts[0]?.isSale || false, // Adjust if you have sale logic
+    isSale: product.subProducts[0]?.isSale || false,
     slug: product.slug,
     prices: product.subProducts[0]?.sizes
-      .map((s: any) => {
-        return s.price;
-      })
-      .sort((a: any, b: any) => {
-        return a - b;
-      }),
+      ?.map((s: any) => s.price)
+      ?.sort((a: any, b: any) => a - b) || [],
   }));
 
   return (
@@ -102,18 +109,13 @@ const ProductPage = async ({
                 {images.map((imgSrc: string, index: number) => (
                   <CarouselItem key={index}>
                     <div className="p-1">
-                      {/* <img
+                      <Image
                         src={imgSrc}
                         alt={`Product Image ${index + 1}`}
-                        className="w-full sticky h-auto object-cover"
-                      /> */}
-                      <Image
-  src={imgSrc}
-  alt={`Product Image ${index + 1}`}
-  width={500} // required
-  height={500} // required
-  className="w-full h-auto object-cover sticky"
-/>
+                        width={500}
+                        height={500}
+                        className="w-full h-auto object-cover sticky"
+                      />
                     </div>
                   </CarouselItem>
                 ))}
@@ -149,9 +151,6 @@ const ProductPage = async ({
             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center py-4">
               <div className="mb-4 lg:mb-0">
                 <div className="flex items-baseline gap-2 ">
-                  {/* <span className="text-2xl lg:text-3xl font-bold text-[#FA6338]">
-                    ${product.price}
-                  </span> */}
                   <span className="text-2xl lg:text-3xl font-bold text-green-500">
                     £{product.price}
                   </span>
@@ -238,11 +237,13 @@ const ProductPage = async ({
           numofReviews={product.numReviews}
           ratings={product.ratings}
         />
-        <ProductCard
-          heading="YOU MAY ALSO LIKE"
-          products={transformedProducts}
-          shop
-        />
+        {transformedProducts.length > 0 && (
+          <ProductCard
+            heading="YOU MAY ALSO LIKE"
+            products={transformedProducts}
+            shop
+          />
+        )}
       </div>
     </div>
   );
