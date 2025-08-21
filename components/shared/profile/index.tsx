@@ -12,8 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useAuth, useClerk, UserProfile } from "@clerk/nextjs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -21,71 +20,95 @@ import {
   getUserById,
   saveAddress,
 } from "@/lib/database/actions/user.actions";
-
 import Link from "next/link";
 import { useForm } from "@mantine/form";
 import { toast } from "sonner";
 import { getSavedCartForUser } from "@/lib/database/actions/cart.actions";
 
+// TypeScript interfaces for type safety
+interface Order {
+  id: string;
+  date: string;
+  total: number;
+}
+
+interface Address {
+  firstName: string;
+  lastName: string;
+  phoneNumber: string;
+  state: string;
+  city: string;
+  zipCode: string;
+  address1: string;
+  address2: string;
+  country: string;
+}
+
+interface User {
+  name: string;
+  email: string;
+  avatar: string;
+  id: string;
+}
+
 export default function MyProfileComponent() {
   const { userId } = useAuth();
-  const [orders, setOrders] = useState<any[]>();
-  const [address, setAddress] = useState<any>();
   const { signOut } = useClerk();
-
-  useEffect(() => {
-    async function fetchAllUserOrders() {
-      try {
-        if (!userId) return;
-        await getAllUserOrdersProfile(userId)
-          .then((res) => {
-            setOrders(res);
-          })
-          .catch((err) => {
-            console.log(err);
-            toast.error(err);
-          });
-      } catch (error: any) {
-        console.log(error);
-      }
-    }
-    fetchAllUserOrders();
-  }, [userId]);
-
-  const [user, setUser] = useState({
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [address, setAddress] = useState<Address | null>(null);
+  const [user, setUser] = useState<User>({
     name: "",
     email: "",
     avatar: "",
     id: "",
   });
 
+  // Fetch user orders
+  useEffect(() => {
+    const fetchAllUserOrders = async () => {
+      if (!userId) return;
+      try {
+        const res = await getAllUserOrdersProfile(userId);
+        setOrders(res || []);
+      } catch (error: any) {
+        toast.error(error.message || "Failed to fetch orders");
+      }
+    };
+    fetchAllUserOrders();
+  }, [userId]);
+
+  // Fetch user data
   useEffect(() => {
     if (userId) {
-      getUserById(userId).then((res) => {
-        if (res?.success) {
-          setUser({
-            ...user,
-            name: res.user.username,
-            email: res.user.email,
-            avatar: res.user.image,
-            id: res.user._id,
-          });
-        } else {
-          console.log(res?.message);
-          toast.error(res?.message);
-        }
-      });
+      getUserById(userId)
+        .then((res) => {
+          if (res?.success) {
+            setUser((prev) => ({
+              ...prev,
+              name: res.user.username || "",
+              email: res.user.email || "",
+              avatar: res.user.image || "",
+              id: res.user._id || "",
+            }));
+          } else {
+            toast.error(res?.message || "Failed to fetch user data");
+          }
+        })
+        .catch((error: any) => {
+          toast.error(error.message || "Failed to fetch user data");
+        });
     }
   }, [userId]);
 
+  // Fetch user address
   useEffect(() => {
     if (userId) {
       getSavedCartForUser(userId)
         .then((res) => {
-          setAddress(res?.address);
+          setAddress(res?.address || null);
         })
-        .catch((err) => {
-          toast.error(err);
+        .catch((error: any) => {
+          toast.error(error.message || "Failed to fetch address");
         });
     }
   }, [userId]);
@@ -110,27 +133,23 @@ export default function MyProfileComponent() {
       lastName: (value) =>
         value.trim().length < 2 ? "Last name must be at least 2 letters" : null,
       phoneNumber: (value) =>
-        value.trim().length < 10 && value.trim().length > 10
-          ? "Phone Number must be within 10 numbers"
+        value.trim().length !== 10
+          ? "Phone number must be exactly 10 digits"
           : null,
       state: (value) =>
         value.length < 2 ? "State must be at least 2 letters" : null,
       city: (value) =>
         value.length < 2 ? "City must be at least 2 letters" : null,
       zipCode: (value) =>
-        value.length < 6 ? "Zip Code must be at least 6 characters." : null,
+        value.length < 6 ? "Zip code must be at least 6 characters" : null,
       address1: (value) =>
-        value.length > 100
-          ? "Address 1 must be at least 100 characters."
-          : null,
+        value.length > 100 ? "Address 1 must not exceed 100 characters" : null,
       address2: (value) =>
-        value.length > 100
-          ? "Address 2 must be at least 100 characters."
-          : null,
+        value.length > 100 ? "Address 2 must not exceed 100 characters" : null,
     },
   });
-  // form.setErrors({ firstName: "Too short", lastName: "Invalid email" });
 
+  // Update form values when address changes
   useEffect(() => {
     if (address && Object.keys(address).length > 0) {
       form.setValues({
@@ -145,7 +164,7 @@ export default function MyProfileComponent() {
         country: address.country || "",
       });
     }
-  }, [address]);
+  }, [address, form]);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -167,7 +186,6 @@ export default function MyProfileComponent() {
                 </div>
               </div>
             </CardHeader>
-
             <CardFooter>
               <Button
                 variant="destructive"
@@ -210,11 +228,11 @@ export default function MyProfileComponent() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {orders &&
+                    {orders && orders.length > 0 ? (
                       orders.map((order) => (
                         <div
                           key={order.id}
-                          className="flex-row items-center justify-between  border-b pb-2"
+                          className="flex flex-row items-center justify-between border-b pb-2"
                         >
                           <div>
                             <p className="font-medium">{order.id}</p>
@@ -234,7 +252,10 @@ export default function MyProfileComponent() {
                             </Link>
                           </div>
                         </div>
-                      ))}
+                      ))
+                    ) : (
+                      <p className="text-gray-500">No orders found.</p>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -250,16 +271,16 @@ export default function MyProfileComponent() {
                 <CardContent>
                   <form
                     onSubmit={form.onSubmit(async (values) => {
-                      await saveAddress({ ...values, active: true }, user.id)
-                        .then((res) => {
-                          setAddress(res.addresses);
-                          toast.success("Successfully added address");
-                          // router.refresh();
-                        })
-                        .catch((err) => {
-                          console.log(err);
-                          toast.error(err);
-                        });
+                      try {
+                        const res = await saveAddress(
+                          { ...values, active: true },
+                          user.id
+                        );
+                        setAddress(res.addresses);
+                        toast.success("Successfully added address");
+                      } catch (error: any) {
+                        toast.error(error.message || "Failed to save address");
+                      }
                     })}
                     className="space-y-4"
                   >
@@ -284,9 +305,9 @@ export default function MyProfileComponent() {
                       </div>
                     </div>
                     <div>
-                      <label htmlFor="phone">Phone Number</label>
+                      <label htmlFor="phoneNumber">Phone Number</label>
                       <Input
-                        id="phone"
+                        id="phoneNumber"
                         placeholder="Phone Number"
                         {...form.getInputProps("phoneNumber")}
                         required
@@ -336,7 +357,6 @@ export default function MyProfileComponent() {
                         id="address2"
                         placeholder="Address 2"
                         {...form.getInputProps("address2")}
-                        required
                       />
                     </div>
                     <div>

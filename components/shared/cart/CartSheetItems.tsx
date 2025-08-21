@@ -1,5 +1,6 @@
 import { useCartStore } from "@/store/cart";
 import { Minus, Plus, X } from "lucide-react";
+import Image from "next/image";
 import React, { useEffect } from "react";
 import { toast } from "sonner";
 
@@ -37,11 +38,13 @@ const CartSheetItems = ({ product }: { product: any }) => {
         key={product._uid}
         className="flex items-start space-x-4 border-b-2 pb-3"
       >
-        <img
-          src={product.images[0].url}
-          alt={product.name}
-          className="w-16 h-16 sm:w-20 sm:h-20 object-cover"
-        />
+        <Image
+  src={product.images[0].url}
+  alt={product.name}
+  width={80} // must give width & height for optimization
+  height={80}
+  className="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded"
+/>
         <div className="flex-1">
           <div className="flex justify-between items-center">
             <h3 className="font-semibold text-xs sm:text-sm tracking-wide ">

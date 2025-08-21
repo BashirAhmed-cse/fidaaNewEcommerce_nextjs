@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { applyCoupon, saveAddress } from "@/lib/database/actions/user.actions";
-
 import { useAuth } from "@clerk/nextjs";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -22,16 +21,59 @@ import DeliveryAddressForm from "./delivery.address.form";
 import ApplyCouponForm from "./apply.coupon.form";
 import Image from "next/image";
 
+// TypeScript interfaces for type safety
+interface CartItem {
+  price: number;
+  qty: number;
+  saved: number;
+  name: string;
+  size: string;
+  image?: string;
+}
+
+interface Address {
+  firstName: string;
+  lastName: string;
+  phoneNumber: string;
+  state: string;
+  city: string;
+  zipCode: string;
+  address1: string;
+  address2: string;
+  country: string;
+}
+
+interface User {
+  _id: string;
+  address?: Address;
+}
+
+interface CartData {
+  cart: CartItem[];
+  user: User;
+  address?: Address;
+  products: CartItem[];
+  cartTotal: number;
+}
+
 export default function CheckoutComponent() {
   const [step, setStep] = useState(1);
-  const [user, setUser] = useState<any>();
-  const [address, setAddress] = useState<any>();
+  const [user, setUser] = useState<User | null>(null);
+  const [address, setAddress] = useState<Address | null>(null);
   const [coupon, setCoupon] = useState<string>("");
-  const [paymentMethod, setPaymentMethod] = useState("cod");
+  const [paymentMethod, setPaymentMethod] = useState<"cod" | "stripe" | "">("");
   const [couponError, setCouponError] = useState("");
   const [totalAfterDiscount, setTotalAfterDiscount] = useState("");
   const [discount, setDiscount] = useState(0);
-  const [data, setData] = useState<any>([]);
+  const [data, setData] = useState<CartData | null>(null);
+  const [subTotal, setSubtotal] = useState<number>(0);
+  const [placeOrderLoading, setPlaceOrderLoading] = useState<boolean>(false);
+
+  const { userId } = useAuth();
+  const router = useRouter();
+  const cart = useCartStore((state: any) => state.cart.cartItems);
+  const { emptyCart } = useCartStore();
+
   const form = useForm({
     initialValues: {
       firstName: "",
@@ -52,8 +94,8 @@ export default function CheckoutComponent() {
       lastName: (value) =>
         value.trim().length < 2 ? "Last name must be at least 2 letters" : null,
       phoneNumber: (value) =>
-        value.trim().length < 10 && value.trim().length > 10
-          ? "Phone Number must be within 10 numbers"
+        value.trim().length !== 10
+          ? "Phone Number must be exactly 10 numbers"
           : null,
       state: (value) =>
         value.length < 2 ? "State must be at least 2 letters" : null,
@@ -68,17 +110,18 @@ export default function CheckoutComponent() {
     },
   });
 
-  const { userId } = useAuth();
+  // Fetch user cart and details
   useEffect(() => {
     if (userId) {
       getSavedCartForUser(userId).then((res) => {
-        setData(res?.cart);
+        setData(res);
         setUser(res?.user);
         setAddress(res?.address);
       });
     }
   }, [userId]);
 
+  // Update form values when address changes
   useEffect(() => {
     if (address && Object.keys(address).length > 0) {
       form.setValues({
@@ -93,136 +136,130 @@ export default function CheckoutComponent() {
         country: address.country || "",
       });
     }
-  }, [address]);
+  }, [address, form]);
+
+  // Update address when user changes
+  useEffect(() => {
+    if (user?.address) {
+      setAddress(user.address);
+    }
+  }, [user]);
+
+  // Calculate subtotal when cart changes
+  useEffect(() => {
+    setSubtotal(
+      cart.reduce((a: number, c: CartItem) => a + c.price * c.qty, 0).toFixed(2)
+    );
+  }, [cart]);
 
   const nextStep = () => setStep(step + 1);
   const prevStep = () => setStep(step - 1);
-  const router = useRouter();
-  useEffect(() => {
-    if (user?.address) {
-      setAddress(user?.address);
-    }
-    setSubtotal(
-      cart.reduce((a: any, c: any) => a + c.price * c.qty, 0).toFixed(2)
-    );
-  }, [user?.address]);
 
-  console.log("check address:-", address);
+  const totalSaved: number = cart.reduce((acc: number, curr: CartItem) => {
+    return acc + curr.saved * curr.qty;
+  }, 0);
+  const carttotal = Number(Number(subTotal) + totalSaved).toFixed(0);
 
   const isStepCompleted = (currentStep: number) => step > currentStep;
   const isActiveStep = (currentStep: number) => step === currentStep;
-  const applyCouponHandler = async (e: any) => {
+
+  const applyCouponHandler = async (e: React.FormEvent) => {
     e.preventDefault();
-    await applyCoupon(coupon, user._id)
+    await applyCoupon(coupon, user?._id || "")
       .catch((err) => {
-        setCouponError(err);
+        setCouponError(err.message || "Failed to apply coupon");
       })
       .then((res) => {
         if (res.success) {
           setTotalAfterDiscount(res.totalAfterDiscount);
           setDiscount(res.discount);
-          toast.success(`Applied ${res.discount}% on order successfuly.`);
+          toast.success(`Applied ${res.discount}% on order successfully.`);
           setCouponError("");
           nextStep();
-        } else if (!res.success) {
-          toast.error(`No Coupon Found`);
+        } else {
+          toast.error("No Coupon Found");
         }
       });
   };
-  const cart = useCartStore((state: any) => state.cart.cartItems);
-  const { emptyCart } = useCartStore();
 
-  const totalSaved: number = cart.reduce((acc: any, curr: any) => {
-    // Add the 'saved' property value to the accumulator
-    return acc + curr.saved * curr.qty;
-  }, 0);
-  const [subTotal, setSubtotal] = useState<number>(0);
-  const carttotal = Number(subTotal + totalSaved).toFixed(0);
-
-  const [placeOrderLoading, setPlaceOrderLoading] = useState<boolean>(false);
   const isDisabled =
-    paymentMethod === "" || user?.address.firstName === "" || placeOrderLoading;
-console.log('check user details:-',user);
+    paymentMethod === "" || !user?.address?.firstName || placeOrderLoading;
+
   const buttonText = () => {
     if (paymentMethod === "") {
       return "Please select the payment method";
     } else if (paymentMethod === "cod") {
       return "Place Order with COD";
-  } else if (!user?.address || !user?.address.firstName) {
+    } else if (!user?.address?.firstName) {
       return "Please Add Billing Address";
     } else if (paymentMethod === "stripe") {
-      return `Place Order with Stripe`;
+      return "Place Order with Stripe";
     }
+    return "Place Order";
   };
 
   useEffect(() => {
     useCartStore.persist.rehydrate();
   }, []);
+
   const placeOrderHandler = async () => {
     try {
       setPlaceOrderLoading(true);
 
       if (paymentMethod === "") {
         toast.error("Please choose a payment method.");
-        setPlaceOrderLoading(false);
         return;
-      } else if (!user?.address.firstName) {
+      } else if (!user?.address?.firstName) {
         toast.error("Please fill in all details in the billing address.");
-        setPlaceOrderLoading(false);
         return;
       }
 
-      // For Stripe Payment
       if (paymentMethod === "stripe") {
         const response = await createStripeOrder(
-          data?.products,
+          data?.products || [],
           user?.address,
           paymentMethod,
-          totalAfterDiscount !== "" ? totalAfterDiscount : data?.cartTotal,
-          data?.cartTotal,
+          totalAfterDiscount !== "" ? totalAfterDiscount : data?.cartTotal || 0,
+          data?.cartTotal || 0,
           coupon,
-          user._id,
+          user?._id || "",
           totalSaved
         );
 
-        // Redirect to Stripe Checkout on the client side
         if (response?.sessionUrl) {
           window.location.href = response.sessionUrl;
         } else {
           toast.error("Stripe session URL not found");
           throw new Error("Stripe session URL not found");
         }
-      }
-      // For other payment methods like Razorpay, handle accordingly
-      else {
+      } else {
         const orderResponse = await createOrder(
-          data?.products,
+          data?.products || [],
           user?.address,
           paymentMethod,
-          totalAfterDiscount !== "" ? totalAfterDiscount : data?.cartTotal,
-          data?.cartTotal,
+          totalAfterDiscount !== "" ? totalAfterDiscount : data?.cartTotal || 0,
+          data?.cartTotal || 0,
           coupon,
-          user._id,
+          user?._id || "",
           totalSaved
         );
         if (orderResponse?.success) {
           emptyCart();
           router.replace(`/order/${orderResponse.orderId}`);
         } else {
-          console.error("Order creation failed:", orderResponse?.message);
-          toast.error(orderResponse?.message);
+          toast.error(orderResponse?.message || "Failed to create order");
         }
       }
     } catch (error) {
       console.error("Error placing order:", error);
       toast.error("An error occurred. Please try again.");
     } finally {
-      setPlaceOrderLoading(false); // Reset loading state
+      setPlaceOrderLoading(false);
     }
   };
 
   return (
-    <div className="container mx-auto p-4 md:p-8 ">
+    <div className="container mx-auto p-4 md:p-8">
       <h1 className="text-2xl font-bold mb-6 text-center">CHECKOUT</h1>
       <div className="flex flex-col lg:flex-row gap-8">
         <div className="w-full lg:w-2/3">
@@ -235,8 +272,8 @@ console.log('check user details:-',user);
                   isActiveStep(1)
                     ? "bg-primary text-white border-primary"
                     : isStepCompleted(1)
-                      ? "bg-green-500 text-white border-green-500"
-                      : "bg-gray-200 text-gray-500 border-gray-300"
+                    ? "bg-green-500 text-white border-green-500"
+                    : "bg-gray-200 text-gray-500 border-gray-300"
                 }`}
               >
                 {isStepCompleted(1) ? (
@@ -250,8 +287,8 @@ console.log('check user details:-',user);
                   isActiveStep(1)
                     ? "text-primary font-semibold"
                     : isStepCompleted(1)
-                      ? "text-green-500"
-                      : "text-muted-foreground"
+                    ? "text-green-500"
+                    : "text-muted-foreground"
                 }`}
               >
                 <span className="hidden lg:block">Delivery Address</span>
@@ -272,8 +309,8 @@ console.log('check user details:-',user);
                   isActiveStep(2)
                     ? "bg-primary text-white border-primary"
                     : isStepCompleted(2)
-                      ? "bg-green-500 text-white border-green-500"
-                      : "bg-gray-200 text-gray-500 border-gray-300"
+                    ? "bg-green-500 text-white border-green-500"
+                    : "bg-gray-200 text-gray-500 border-gray-300"
                 }`}
               >
                 {isStepCompleted(2) ? (
@@ -287,8 +324,8 @@ console.log('check user details:-',user);
                   isActiveStep(2)
                     ? "text-primary font-semibold"
                     : isStepCompleted(2)
-                      ? "text-green-500"
-                      : "text-muted-foreground"
+                    ? "text-green-500"
+                    : "text-muted-foreground"
                 }`}
               >
                 <span className="hidden lg:block">Apply Coupon</span>
@@ -309,8 +346,8 @@ console.log('check user details:-',user);
                   isActiveStep(3)
                     ? "bg-primary text-white border-primary"
                     : isStepCompleted(3)
-                      ? "bg-green-500 text-white border-green-500"
-                      : "bg-gray-200 text-gray-500 border-gray-300"
+                    ? "bg-green-500 text-white border-green-500"
+                    : "bg-gray-200 text-gray-500 border-gray-300"
                 }`}
               >
                 {isStepCompleted(3) ? (
@@ -324,8 +361,8 @@ console.log('check user details:-',user);
                   isActiveStep(3)
                     ? "text-primary font-semibold"
                     : isStepCompleted(3)
-                      ? "text-green-500"
-                      : "text-muted-foreground"
+                    ? "text-green-500"
+                    : "text-muted-foreground"
                 }`}
               >
                 <span className="hidden lg:block">Choose Payment Method</span>
@@ -334,47 +371,10 @@ console.log('check user details:-',user);
           </div>
 
           {/* Step 1: Delivery Address Form */}
-          {/* {step === 1 && (
+          {step === 1 && (
             <form
               onSubmit={form.onSubmit(async (values) => {
-                try {
-                  const response = await saveAddress(
-                    {
-                      ...values,
-                      active: true,
-                    },
-                    user._id
-                  );
-
-                  if (response.success) {
-                    setAddress(response.addresses);
-                    toast.success("Address saved successfully");
-                    router.refresh();
-                    nextStep();
-                  } else {
-                    throw new Error(
-                      response.message || "Failed to save address"
-                    );
-                  }
-                } catch (error) {
-                  console.error("Address save error:", error);
-                  toast.error(
-                    error instanceof Error
-                      ? error.message
-                      : "An unexpected error occurred"
-                  );
-                }
-              })}
-              className="space-y-4"
-              aria-busy={form.submitting}
-            >
-              <DeliveryAddressForm form={form} />
-            </form>
-          )} */}
-{step === 1 && (
-            <form
-              onSubmit={form.onSubmit(async (values) => {
-                await saveAddress({ ...values, active: true }, user._id)
+                await saveAddress({ ...values, active: true }, user?._id || "")
                   .then((res) => {
                     setAddress(res.addresses);
                     toast.success("Successfully added address");
@@ -382,8 +382,7 @@ console.log('check user details:-',user);
                     nextStep();
                   })
                   .catch((err) => {
-                    console.log(err);
-                    toast.error(err);
+                    toast.error(err.message || "Failed to save address");
                   });
               })}
               className="space-y-4"
@@ -391,12 +390,11 @@ console.log('check user details:-',user);
               <DeliveryAddressForm form={form} />
             </form>
           )}
+
           {/* Step 2: Apply Coupon */}
           {step === 2 && (
             <form
-              onSubmit={(e) => {
-                applyCouponHandler(e);
-              }}
+              onSubmit={applyCouponHandler}
               className="space-y-4"
             >
               <ApplyCouponForm
@@ -409,9 +407,7 @@ console.log('check user details:-',user);
           {/* Step 3: Choose Payment */}
           {step === 3 && (
             <form
-              onSubmit={(e) => {
-                e.preventDefault();
-              }}
+              onSubmit={(e) => e.preventDefault()}
               className="space-y-4"
             >
               <h2 className="text-xl font-semibold mb-4">
@@ -448,11 +444,11 @@ console.log('check user details:-',user);
         </div>
 
         {/* Order Summary */}
-        <div className="w-full bg-gray-100 lg:w-1/3  lg:sticky top-[1rem] self-start">
+        <div className="w-full bg-gray-100 lg:w-1/3 lg:sticky top-[1rem] self-start">
           <div className="p-6">
             <h2 className="text-xl font-semibold mb-4">Order Summary</h2>
             <div className="space-y-4">
-              {data.products?.map((i: any, index: number) => (
+              {data?.products?.map((i: CartItem, index: number) => (
                 <div className="flex items-center space-x-4" key={index}>
                   {i.image ? (
                     <Image
@@ -467,7 +463,6 @@ console.log('check user details:-',user);
                       <span className="text-gray-500">No Image Available</span>
                     </div>
                   )}
-
                   <div>
                     <h3 className="font-medium text-sm">{i.name}</h3>
                     <p className="text-sm text-muted-foreground">
@@ -486,8 +481,8 @@ console.log('check user details:-',user);
             <div className="mt-6 space-y-2">
               <div className="flex justify-between">
                 <span>
-                  Subtotal ({data && data?.products?.length}{" "}
-                  {data && data?.products?.length === 1 ? "Item" : "Items"}):
+                  Subtotal ({data?.products?.length || 0}{" "}
+                  {data?.products?.length === 1 ? "Item" : "Items"}):
                 </span>
                 <span>
                   <strong>$ {carttotal}</strong>
@@ -511,38 +506,32 @@ console.log('check user details:-',user);
                 }`}
               >
                 <span>
-                  {" "}
                   {totalAfterDiscount !== ""
                     ? "Total: "
-                    : "Total before :"}{" "}
+                    : "Total before: "}
                 </span>
-                <span>$ {data?.cartTotal}</span>
+                <span>$ {data?.cartTotal || 0}</span>
               </div>
-              <div className="mt-[10px] flex flex-col gap-[5px] ">
-                {/* <span className="bg-[#eeeeee75] p-[5px] text-[14px] border border-[#cccccc17]  ">
-                {coupon === "" ? "Total: " : "Total before :"}
-                <b>$ {cart.cartTotal}</b>
-              </span> */}
+              <div className="mt-[10px] flex flex-col gap-[5px]">
                 {discount > 0 && (
-                  <span className="discount bg-green-700 text-white p-[5px] text-[14px] border flex justify-between border-[#cccccc17]  ">
-                    Coupon applied :{" "}
-                    <b className="text-[15px] ">- {discount}%</b>
+                  <span className="discount bg-green-700 text-white p-[5px] text-[14px] border flex justify-between border-[#cccccc17]">
+                    Coupon applied: <b className="text-[15px]">- {discount}%</b>
                   </span>
                 )}
-                {totalAfterDiscount < data?.cartTotal &&
-                  totalAfterDiscount != "" && (
-                    <span className=" p-[5px] text-lg flex justify-between border border-[#cccccc17]  ">
-                      Total after Discount :{" "}
-                      <b className="text-[15px] ">$ {totalAfterDiscount}</b>
+                {totalAfterDiscount < (data?.cartTotal || 0) &&
+                  totalAfterDiscount !== "" && (
+                    <span className="p-[5px] text-lg flex justify-between border border-[#cccccc17]">
+                      Total after Discount:{" "}
+                      <b className="text-[15px]">$ {totalAfterDiscount}</b>
                     </span>
                   )}
               </div>
             </div>
 
             <Button
-              onClick={() => placeOrderHandler()}
+              onClick={placeOrderHandler}
               disabled={isDisabled}
-              className={`mt-[1rem] flex justify-center pt-[10px] gap-[10px] disabled:bg-[#ccc]  w-full h-[45px] bg-green-700 text-white ${
+              className={`mt-[1rem] flex justify-center pt-[10px] gap-[10px] disabled:bg-[#ccc] w-full h-[45px] bg-green-700 text-white ${
                 isDisabled ? "bg-theme_light cursor-not-allowed" : ""
               }`}
             >
@@ -551,9 +540,11 @@ console.log('check user details:-',user);
                   <Loader className="animate-spin" /> Loading...
                 </div>
               ) : (
-                buttonText()
+                <>
+                  {buttonText()}
+                  <FaArrowAltCircleRight size={25} color="white" />
+                </>
               )}
-              <FaArrowAltCircleRight size={25} color="white" />
             </Button>
           </div>
         </div>

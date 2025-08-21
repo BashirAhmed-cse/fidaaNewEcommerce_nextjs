@@ -5,27 +5,35 @@ import React, { useEffect } from "react";
 import { useAtom, useStore } from "jotai";
 import { quantityState } from "../jotai/store";
 
-const QtyButtons = ({
-  product,
-  size,
-  style,
-}: {
-  product: any;
+// Define TypeScript interface for product
+interface Product {
+  quantity: number;
+  // Add other product properties as needed
+}
+
+interface QtyButtonsProps {
+  product: Product;
   size: number;
   style: number;
-}) => {
+}
+
+const QtyButtons = ({ product, size, style }: QtyButtonsProps) => {
   const [qty, setQty] = useAtom(quantityState, {
     store: useStore(),
   });
+
+  // Handle quantity reset and capping based on style and size changes
   useEffect(() => {
-    setQty(1);
-  }, [style]);
-  
-  useEffect(() => {
+    // Reset quantity to 1 when style changes
+    if (style) {
+      setQty(1);
+    }
+
+    // Cap quantity at product.quantity when size changes or qty exceeds stock
     if (qty > product.quantity) {
       setQty(product.quantity);
     }
-  }, [size]);
+  }, [style, size, qty, product.quantity, setQty]);
 
   return (
     <div>
@@ -48,7 +56,7 @@ const QtyButtons = ({
           <Plus className="h-4 w-4" />
         </Button>
       </div>
-      <div className="">
+      <div>
         {product.quantity < 1 && (
           <span className="text-red-500">Out of Stock</span>
         )}

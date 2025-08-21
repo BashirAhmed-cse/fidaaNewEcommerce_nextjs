@@ -12,71 +12,92 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 const ShopPageComponent = () => {
-  const [allCategories, setAllCategories] = useState([]);
-  const [selectedCategoryId, setSelectedCategoryId] = useState("");
-  const [subCategories, setSubCategories] = useState([]);
+  const [allCategories, setAllCategories] = useState<any[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
+  const [subCategories, setSubCategories] = useState<any[]>([]);
+
+  // Fetch all categories
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        await getAllCategories().then((res) => {
-          if (res?.success) {
-            setAllCategories(res?.categories || []);
-            setSelectedCategoryId(res?.categories[0]?._id || "");
-          }
-        });
+        const res = await getAllCategories();
+        if (res?.success) {
+          setAllCategories(res.categories || []);
+          setSelectedCategoryId(res?.categories[0]?._id || "");
+        }
       } catch (error) {
         handleError(error);
       }
     };
     fetchCategories();
   }, []);
+
+  // Fetch subcategories whenever category changes
   useEffect(() => {
     async function fetchSubCategories() {
-      if (selectedCategoryId === "") return;
-      await getAllSubCategoriesByParentId(selectedCategoryId)
-        .then((res) => {
-          setSubCategories(res?.subCategories);
-          console.log(subCategories);
-        })
-        .catch((err) => {
-          toast.error(err);
-          console.log(err);
-        });
+      if (!selectedCategoryId) return;
+      try {
+        const res = await getAllSubCategoriesByParentId(selectedCategoryId);
+        setSubCategories(res?.subCategories || []);
+      } catch (err) {
+        toast.error("Failed to load subcategories");
+        console.error(err);
+      }
     }
     fetchSubCategories();
   }, [selectedCategoryId]);
+
+  // Log subcategories whenever they change (for debugging only)
+  useEffect(() => {
+    console.log("Subcategories updated:", subCategories);
+  }, [subCategories]);
+
   return (
-    <div className="conatiner my-[50px]">
+    <div className="container my-[50px]">
       <h1 className="heading mb-8 text-center">Shop All Products</h1>
+
+      {/* Category filter */}
       <RadioGroup
         value={selectedCategoryId}
         onValueChange={setSelectedCategoryId}
       >
-        <div className="flex flex-row justify-center items-center gap-[10px]">
-          {allCategories.map((category: any, index: number) => (
+        <div className="flex flex-row justify-center items-center gap-[10px] flex-wrap">
+          {allCategories.map((category) => (
             <div key={category._id} className="flex items-center space-x-2">
               <RadioGroupItem value={category._id} id={category._id} />
               <Label htmlFor={category._id}>{category.name}</Label>
             </div>
           ))}
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-          {subCategories.map((item: any, index: number) => (
-            <div className="p-4 border rounded" key={index}>
-              <Link href={`/shop/subCategory/${item._id}?name=${item.name}`}>
-                <Image
-                  src={item.images[0].url}
-                  alt={item.name}
-                  width={450}
-                  height={320}
-                />
-              </Link>
-              <div className="">{item.name}</div>
-              <Link href={`/shop/subCategory/${item._id}?name=${item.name}`}>
-                <Button>See All Products</Button>
-              </Link>
-            </div>
-          ))}
+
+        {/* Subcategories grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 mt-8">
+          {subCategories.length > 0 ? (
+            subCategories.map((item) => (
+              <div
+                key={item._id}
+                className="p-4 border rounded-lg shadow-sm hover:shadow-md transition"
+              >
+                <Link href={`/shop/subCategory/${item._id}?name=${item.name}`}>
+                  <Image
+                    src={item.images[0]?.url || "/placeholder.png"}
+                    alt={item.name}
+                    width={450}
+                    height={320}
+                    className="rounded-md object-cover"
+                  />
+                </Link>
+                <div className="mt-3 font-semibold">{item.name}</div>
+                <Link href={`/shop/subCategory/${item._id}?name=${item.name}`}>
+                  <Button className="mt-3 w-full">See All Products</Button>
+                </Link>
+              </div>
+            ))
+          ) : (
+            <p className="text-center col-span-full text-gray-500">
+              No subcategories found.
+            </p>
+          )}
         </div>
       </RadioGroup>
     </div>

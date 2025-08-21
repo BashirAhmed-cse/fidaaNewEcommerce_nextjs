@@ -5,6 +5,7 @@ import useEmblaCarousel from "embla-carousel-react";
 import { Minus, Plus, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import Image from "next/image";
 
 const ProductCarousel = ({ products }: { products: any[] }) => {
   const [emblaRef, emblaApi] = useEmblaCarousel({
@@ -55,13 +56,13 @@ const ProductCarousel = ({ products }: { products: any[] }) => {
                 className="embla__slide flex-[0_0_100%] min-w-0 flex flex-col lg:flex-row gap-4 sm:gap-8"
               >
                 <div className="lg:w-1/2 flex justify-center items-center">
-                  <img
-                    src={productImage}
-                    alt={product.name}
-                    width={600}
-                    height={600}
-                    className="w-full max-w-md h-auto object-cover rounded-lg shadow-md"
-                  />
+                  <Image
+  src={productImage}
+  alt={product.name}
+  width={600}
+  height={600}
+  className="w-full max-w-md h-auto object-cover rounded-lg shadow-md"
+/>
                 </div>
                 <div className="lg:w-1/2 space-y-3 sm:space-y-4">
                   <h2 className="text-2xl sm:text-3xl font-bold">
