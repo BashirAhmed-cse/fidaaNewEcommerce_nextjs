@@ -8,6 +8,7 @@ import SubCategory from "../models/subCategory.model";
 import User from "../models/user.model";
 import { redirect } from "next/navigation";
 import { revalidateTag, unstable_cache } from "next/cache";
+import { Types } from "mongoose";
 
 // get all top selling products
 export const getTopSellingProducts = unstable_cache(
@@ -252,64 +253,54 @@ export async function createProductReview(
 ) {
   try {
     await connectToDatabase();
-    const product = await Product.findById(productId);
     const user = await User.findOne({ clerkId });
+    if (!user) throw new Error(`User with clerkId ${clerkId} not found`);
 
-    if (product) {
-      const exist = product.reviews.find(
-        (x: any) => x.reviewBy.toString() == user._id
+    const product = await Product.findById(productId);
+    if (!product) throw new Error(`Product with ID ${productId} not found`);
+
+    const exist = product.reviews.find(
+      (x) => x.reviewBy.toString() === user._id.toString()
+    );
+
+    if (exist) {
+      // update existing review
+      await Product.updateOne(
+        { _id: productId, "reviews.reviewBy": user._id },
+        {
+          $set: {
+            "reviews.$.review": review,
+            "reviews.$.rating": rating,
+            "reviews.$.reviewCreatedAt": new Date(),
+          },
+        }
       );
-      if (exist) {
-        await Product.updateOne(
-          {
-            _id: productId,
-            "reviews._id": exist._id,
-          },
-          {
-            $set: {
-              "reviews.$.review": review,
-              "reviews.$.rating": rating,
-              "reviews.$.reviewCreatedAt": Date.now(),
-            },
-          },
-          {
-            new: true,
-          }
-        );
-        const updatedProduct = await Product.findById(productId);
-        updatedProduct.numReviews = updatedProduct.reviews.length;
-        updatedProduct.rating =
-          updatedProduct.reviews.reduce((a: any, r: any) => r.rating + a, 0) /
-          updatedProduct.reviews.length;
-        await updatedProduct.save();
-        await updatedProduct.populate("reviews.reviewBy");
-        revalidateTag("product");
-        return JSON.parse(
-          JSON.stringify({ reviews: updatedProduct.reviews.reverse() })
-        );
-      } else {
-        const full_review = {
-          reviewBy: user._id,
-          rating,
-          review,
-          reviewCreatedAt: Date.now(),
-        };
-        product.reviews.push(full_review);
-        product.numReviews = product.reviews.length;
-        product.rating =
-          product.reviews.reduce((a: any, r: any) => r.rating + a, 0) /
-          product.reviews.length;
-        await product.save();
-        await product.populate("reviews.reviewBy");
-        revalidateTag("product");
-
-        return JSON.parse(
-          JSON.stringify({ reviews: product.reviews.reverse() })
-        );
-      }
+    } else {
+      // add new review
+      const full_review = {
+        reviewBy: user._id as Types.ObjectId,
+        rating,
+        review,
+        reviewCreatedAt: new Date(),
+        verified: false,
+      };
+      product.reviews.push(full_review);
     }
+
+    // recalc ratings
+    product.numReviews = product.reviews.length;
+    product.rating =
+      product.reviews.reduce((total, r) => total + r.rating, 0) /
+      product.reviews.length;
+
+    await product.save();
+    await product.populate("reviews.reviewBy");
+    revalidateTag("product");
+
+    return { reviews: product.reviews.reverse() };
   } catch (error) {
-    console.log(error);
+    console.error(error);
+    throw error;
   }
 }
 

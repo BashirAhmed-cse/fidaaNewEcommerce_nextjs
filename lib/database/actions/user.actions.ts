@@ -128,34 +128,28 @@ export async function deleteUser(clerkId: string) {
 }
 
 // Address operations of user:
-export async function changeActiveAddress(id: any, user_id: any) {
+export async function changeActiveAddress(id: string, user_id: string) {
   try {
     await connectToDatabase();
     const user = await User.findById(user_id);
-    let user_addresses = user.address;
-    let addresses = [];
+    if (!user || !user.address) return { addresses: [] };
 
-    for (let i = 0; i < user_addresses.length; i++) {
-      let temp_address = {};
-      if (user_addresses[i]._id == id) {
-        temp_address = { ...user_addresses[i].toObject(), active: true };
-        addresses.push(temp_address);
-      } else {
-        temp_address = { ...user_addresses[i].toObject(), active: false };
-        addresses.push(temp_address);
-      }
-    }
-    await user.updateOne(
-      {
-        address: addresses,
-      },
-      { new: true }
-    );
-    return JSON.parse(JSON.stringify({ addresses }));
+  const updatedAddresses = user.address.map((addr: any) => ({
+  ...(addr.toObject ? addr.toObject() : addr),
+  active: addr._id?.toString() === id.toString(),
+}));
+
+
+    await user.updateOne({ address: updatedAddresses });
+
+    return { addresses: updatedAddresses }; // already plain JS object
   } catch (error) {
     handleError(error);
   }
 }
+
+
+
 export async function deleteAddress(id: any, user_id: any) {
   try {
     await connectToDatabase();
@@ -203,31 +197,45 @@ export async function saveAddress(address: any, user_id: any) {
 }
 
 // Coupon operations of user:
-export async function applyCoupon(coupon: any, user_id: any) {
+export async function applyCoupon(couponCode: string, user_id: string) {
   try {
     await connectToDatabase();
     const user = await User.findById(user_id);
-    const checkCoupon = await Coupon.findOne({ coupon });
     if (!user) {
       return { message: "User not found", success: false };
     }
-    if (checkCoupon == null) {
+
+    const checkCoupon = await Coupon.findOne({ coupon: couponCode }).lean();
+    if (!checkCoupon) {
       return { message: "Invalid Coupon", success: false };
     }
-    const { cartTotal } = await Cart.findOne({ user: user_id });
-    let totalAfterDiscount =
-      cartTotal - (cartTotal * checkCoupon.discount) / 100;
-    await Cart.findByIdAndUpdate(user._id, { totalAfterDiscount });
-    return JSON.parse(
-      JSON.stringify({
-        totalAfterDiscount: totalAfterDiscount.toFixed(2),
-        discount: checkCoupon.discount,
-        message: "Successfully fetched Coupon",
-        success: true,
-      })
+
+    const cart = await Cart.findOne({ user: user_id }).lean();
+    if (!cart || typeof cart.cartTotal !== "number") {
+      return { message: "Cart not found or invalid", success: false };
+    }
+
+    const totalAfterDiscount =
+      cart.cartTotal - (cart.cartTotal * checkCoupon.discount) / 100;
+
+    await Cart.findOneAndUpdate(
+      { user: user_id },
+      { totalAfterDiscount },
+      { new: true }
     );
-  } catch (error) {}
+
+    return {
+      totalAfterDiscount: totalAfterDiscount.toFixed(2),
+      discount: checkCoupon.discount,
+      message: "Successfully applied Coupon",
+      success: true,
+    };
+  } catch (error) {
+    console.error("❌ Error in applyCoupon:", error);
+    return { message: "Server error", success: false };
+  }
 }
+
 
 // get all orders of user for their profile:
 export async function getAllUserOrdersProfile(clerkId: string) {

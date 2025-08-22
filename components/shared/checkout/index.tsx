@@ -180,24 +180,25 @@ useEffect(() => {
   const isStepCompleted = (currentStep: number) => step > currentStep;
   const isActiveStep = (currentStep: number) => step === currentStep;
 
-  const applyCouponHandler = async (e: React.FormEvent) => {
-    e.preventDefault();
-    await applyCoupon(coupon, user?._id || "")
-      .catch((err) => {
-        setCouponError(err.message || "Failed to apply coupon");
-      })
-      .then((res) => {
-        if (res.success) {
-          setTotalAfterDiscount(res.totalAfterDiscount);
-          setDiscount(res.discount);
-          toast.success(`Applied ${res.discount}% on order successfully.`);
-          setCouponError("");
-          nextStep();
-        } else {
-          toast.error("No Coupon Found");
-        }
-      });
-  };
+const applyCouponHandler = async (e: React.FormEvent) => {
+  e.preventDefault();
+  try {
+    const res = await applyCoupon(coupon, user?._id || "");
+    if (res.success) {
+      setTotalAfterDiscount(res.totalAfterDiscount || "0");
+      setDiscount(res.discount || 0);
+      toast.success(`Applied ${res.discount}% on order successfully.`);
+      setCouponError("");
+      nextStep();
+    } else {
+      toast.error(res.message || "No Coupon Found");
+      setCouponError(res.message);
+    }
+  } catch (err: any) {
+    setCouponError(err.message || "Failed to apply coupon");
+  }
+};
+
 
   const isDisabled =
     paymentMethod === "" || !user?.address?.firstName || placeOrderLoading;

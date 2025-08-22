@@ -3,7 +3,8 @@ import mongoose, { Document, Schema, Model } from "mongoose";
 const { ObjectId } = Schema;
 
 // 1. Define TS interface
-export interface IOrder extends Document {
+// interface: no isNew field
+export interface IOrder {
   user: mongoose.Types.ObjectId;
   products: {
     product: mongoose.Types.ObjectId;
@@ -48,10 +49,11 @@ export interface IOrder extends Document {
   razorpay_payment_id?: string;
   paidAt?: Date;
   deliveredAt?: Date;
-  isNew?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
+
+
 
 // 2. Define Schema
 const orderSchema = new Schema<IOrder>(
@@ -102,13 +104,14 @@ const orderSchema = new Schema<IOrder>(
     razorpay_payment_id: String,
     paidAt: Date,
     deliveredAt: Date,
-    isNew: { type: Boolean, default: true },
   },
   { timestamps: true }
 );
+
 
 // 3. Export typed model
 const Order: Model<IOrder> =
   mongoose.models.Order || mongoose.model<IOrder>("Order", orderSchema);
 
 export default Order;
+

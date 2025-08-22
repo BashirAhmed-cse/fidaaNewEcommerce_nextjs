@@ -1,4 +1,4 @@
-import mongoose, { Schema, model, models, Document, Types } from "mongoose";
+import mongoose, { Schema, model, models, Document, Types, Model } from "mongoose";
 
 // TypeScript interfaces
 export interface ICartProduct {
@@ -43,6 +43,7 @@ const cartSchema = new Schema<ICart>(
   { timestamps: true }
 );
 
-// Export typed model
-const Cart = models.Cart || model<ICart>("Cart", cartSchema);
+// ✅ Explicitly typed export
+const Cart: Model<ICart> = models.Cart || model<ICart>("Cart", cartSchema);
+
 export default Cart;
